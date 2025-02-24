@@ -399,7 +399,7 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
     xvals, yvals = test_find_topmost_distance(final_image, scaling_factor)
 
-    fig, axs = plt.subplots(2, 1, figsize=(10, 5), dpi=500)
+    fig, axs = plt.subplots(2, 1, figsize=(10, 5), dpi=150)
     axs[1].plot(xvals, yvals, color='b')
     axs[1].set_title("Extracted Keyhole Contour")
     axs[1].set_xlabel("Length")
