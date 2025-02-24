@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import csv
-import pytesseract
 
 
 def fill_holes_before_binarization(image):
@@ -253,8 +252,8 @@ def calculate_scaling_factor(binarized_image, ratio):
     _, binarized_image = cv2.threshold(gray_image, 127, 255, cv2.THRESH_BINARY)
 
     height, width = binarized_image.shape
-    y_start = int(0.5 * height)  # Bottom 5% of the y-axis
-    x_start = int(0.7 * width)   # Rightmost 10% of the x-axis
+    y_start = int(0.5 * height)
+    x_start = int(0.7 * width)
     # Crop the image to the defined ROI
     roi_image = binarized_image[y_start:, x_start:]
 
@@ -337,7 +336,7 @@ def export_to_csv(xvals, yvals, filename="depth_data.csv"):
         writer = csv.writer(file)
 
         # Write header
-        writer.writerow(["Length [mm]", "Welding Depth [mm]"])
+        writer.writerow(["Length [mm]", "Keyhole depth [mm]"])
 
         # Write data rows
         for x, y in zip(xvals, yvals):
@@ -400,28 +399,27 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
     xvals, yvals = test_find_topmost_distance(final_image, scaling_factor)
 
-
-    fig, axs = plt.subplots(2, 1, figsize=(10, 10), dpi=500)
+    fig, axs = plt.subplots(2, 1, figsize=(10, 5), dpi=500)
     axs[1].plot(xvals, yvals, color='b')
-    axs[1].set_title(f"Extracted Contour")
+    axs[1].set_title("Extracted Keyhole Contour")
     axs[1].set_xlabel("Length")
-    axs[1].set_ylabel("Welding depth")
+    axs[1].set_ylabel("Keyhole depth")
     axs[1].set_xlim(0, xvals[-1])
 
-    # Add units to the axes
+    # Add units to the axes 
     add_units_to_ticks(axs[1], axis='x', unit='mm')  # X-axis with 'mm'
     add_units_to_ticks(axs[1], axis='y', unit='mm')  # Y-axis with 'mm'
 
     # Plot the final image in the second subplot
     axs[0].imshow(final_image, cmap="gray")
     axs[0].axis('off')  # Turn off axis
-    axs[0].set_title(f'Processed Image')
+    axs[0].set_title('Processed Image')
 
     rect = patches.Rectangle((0, 0), final_image.shape[1], final_image.shape[0],
                              linewidth=3, edgecolor="black", facecolor='none')  # Red frame
     axs[0].add_patch(rect)
 
-    plt.subplots_adjust(wspace=1, hspace=-0.5)
+    plt.subplots_adjust(wspace=1, hspace=0.5)
     plt.tight_layout()
     plt.show()
     
@@ -432,4 +430,4 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
 if __name__ == '__main__':
     image_path = "1-1.png"
-    Find_Depth(image_path, min_percentage=0.1, scale_length = 5, export_name = "depth_data.csv" )
+    Find_Depth(image_path, min_percentage=5, scale_length = 5, export_name = "depth_data.csv" )
