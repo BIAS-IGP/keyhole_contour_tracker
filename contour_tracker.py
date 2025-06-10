@@ -271,8 +271,7 @@ def calculate_scaling_factor(binarized_image, ratio):
         if len(approx) == 4:
             # Calculate the bounding rectangle
             x, y, w, h = cv2.boundingRect(approx)
-            print(f"Rectangle detected at: (x={
-                  x+x_start}, y={y+y_start}), width={w}, height={h}")
+            print(f"Rectangle detected at: (x={x+x_start}, y={y+y_start}), width={w}, height={h}")
             # Filter out too-small rectangles (adjust threshold as needed)
             if w * h < 1000:
                 continue
@@ -287,8 +286,7 @@ def calculate_scaling_factor(binarized_image, ratio):
         scaling_factor = ratio / longest_side_pixels
         cv2.rectangle(binarized_image, (x+x_start, y+y_start),
                       (x+x_start + w, y+y_start + h), (0, 255, 0), 100)
-        print(f"Scale rectangle detected: Longest side = {
-              longest_side_pixels} pixels")
+        print(f"Scale rectangle detected: Longest side = {longest_side_pixels} pixels")
         print(f"Scaling factor: {scaling_factor} mm per pixel")
     else:
         print("Scale rectangle not detected in the bottom-right ROI.")
@@ -371,6 +369,8 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     # Step 4: Fill holes after binarization
     filled_after_binarization = fill_holes_after_binarization(binarized_image)
 
+
+
     # Insert calculation of scale here
     # Step 5: Calculate the scaling factor using the binarized image
     scaling_factor = calculate_scaling_factor(
@@ -397,6 +397,14 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     # Step 8: Remove all but the largest black cluster
     final_image = remove_all_but_largest_black_cluster(bottom_connected)
 
+    # plt.imshow(binarized_image, cmap = "bone")
+    # plt.show()
+    # plt.imshow(filled_after_binarization, cmap = "bone")
+    # plt.show()
+    # plt.imshow(filtered_image, cmap = "bone")
+    # plt.show()
+    # plt.imshow(cropped_image, cmap = "bone")
+    # plt.show()
     xvals, yvals = test_find_topmost_distance(final_image, scaling_factor)
 
     fig, axs = plt.subplots(2, 1, figsize=(10, 5), dpi=150)
@@ -413,10 +421,10 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     # Plot the final image in the second subplot
     axs[0].imshow(final_image, cmap="gray")
     axs[0].axis('off')  # Turn off axis
-    axs[0].set_title('Processed Image')
+    axs[0].set_title(f'Processed Image, {image_path}')
 
     rect = patches.Rectangle((0, 0), final_image.shape[1], final_image.shape[0],
-                             linewidth=3, edgecolor="black", facecolor='none')  # Red frame
+                              linewidth=3, edgecolor="black", facecolor='none')  # Red frame
     axs[0].add_patch(rect)
 
     plt.subplots_adjust(wspace=1, hspace=0.5)
@@ -429,5 +437,15 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
 
 if __name__ == '__main__':
-    image_path = "1-1.png"
-    Find_Depth(image_path, min_percentage=5, scale_length = 5, export_name = "depth_data.csv" )
+    image_list = [
+        f"{i}-1.tif" if i != 15 else "X-1.tif"
+        for i in range(1, 21)
+    ] + [
+        f"{i}-2.tif" if i != 15 else "X-2.tif"
+        for i in range(1, 21)
+    ]
+    for idx in range(len(image_list)):
+        image_name = image_list[idx]
+        image_path = f"{image_name}"
+        Find_Depth(image_path, min_percentage=3, scale_length = 5, 
+                   export_name = f"{image_name}_depth_data.csv" )
