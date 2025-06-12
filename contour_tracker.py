@@ -3,6 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import csv
+import os
+import urllib.request
+import torch 
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from segment_anything import sam_model_registry, SamPredictor
+
 
 
 def fill_holes_before_binarization(image):
@@ -158,6 +164,32 @@ def connect_bottom_of_clusters(image, contours):
     return result_image
 
 
+def makewhite(image):
+    """
+    For each column in the binary image, find the first white pixel from the top,
+    and set all pixels below it to white (255).
+    
+    Parameters:
+    - image: Grayscale or binary image (2D numpy array with values 0 or 255)
+
+    Returns:
+    - result_image: Modified image with everything below the first white pixel per column set to white
+    """
+    height, width = image.shape
+    result_image = image.copy()
+
+    for x in range(width):
+        column = image[:, x]
+        
+        # Find indices where the pixel is white (255)
+        white_indices = np.where(column == 255)[0]
+
+        if white_indices.size > 0:
+            top_white_y = white_indices[0]
+            result_image[top_white_y:, x] = 255  # Fill all pixels below with white
+
+    return result_image
+
 def find_topmost_point_at_each_x(image):
     """
     Find the topmost point for each x-coordinate in the image and return the y-values.
@@ -278,7 +310,7 @@ def calculate_scaling_factor(binarized_image, ratio):
             scale_contour = approx
             break
 
-    scaling_factor = None
+    scaling_factor = 1
     if scale_contour is not None:
         x, y, w, h = cv2.boundingRect(scale_contour)
         longest_side_pixels = max(w, h)
@@ -341,7 +373,122 @@ def export_to_csv(xvals, yvals, filename="depth_data.csv"):
             writer.writerow([x, y])
 
     print(f"Data has been exported to {filename}")
+    
+def run_sam_interactive(image_bgr):
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    
+    # Load SAM model
+    checkpoint_path = "sam_vit_b_01ec64.pth"
+    checkpoint_url = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
 
+    # If checkpoint is missing, ask the user if they want to download it
+    if not os.path.exists(checkpoint_path):
+        app = QApplication([])
+        reply = QMessageBox.question(
+            None,
+            "Download Required",
+            "The SAM checkpoint file is missing.\nDownload it now? (~375 MB)",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            print("User cancelled download. Exiting SAM interactive.")
+            return None
+
+        # Proceed with download
+        print(f"Downloading SAM model to '{checkpoint_path}'...")
+        urllib.request.urlretrieve(checkpoint_url, checkpoint_path)
+        print("Download complete.")
+        app.quit()
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    sam = sam_model_registry["vit_b"](checkpoint=checkpoint_path).to(device)
+    predictor = SamPredictor(sam)
+    predictor.set_image(image_rgb)
+    
+    clicked_points = []
+    point_labels = []
+    last_point = None
+    
+    fig, ax = plt.subplots()
+    ax.imshow(image_rgb)
+    ax.set_title("Left click = label 1, then press 'z' to change last point to label 0")
+    
+    def onclick(event):
+        nonlocal last_point
+        if event.inaxes:
+            x, y = int(event.xdata), int(event.ydata)
+            clicked_points.append([x, y])
+            point_labels.append(1)  # Default label is 1
+            last_point = len(clicked_points) - 1  # Track index of last added point
+            ax.plot(x, y, "ro")  # Red dot for label 1
+            fig.canvas.draw()
+            print(f"Point added at ({x}, {y}) with label 1")
+    
+    def onkey(event):
+        nonlocal last_point
+        if event.key == 'z' and last_point is not None:
+            point_labels[last_point] = 0
+            x, y = clicked_points[last_point]
+            ax.plot(x, y, "bo")  # Blue dot for label 0
+            fig.canvas.draw()
+            print(f"Last point at ({x}, {y}) changed to label 0")
+    
+    fig.canvas.mpl_connect("button_press_event", onclick)
+    fig.canvas.mpl_connect("key_press_event", onkey)
+    plt.show(block=True)
+    
+    if len(clicked_points) == 0:
+        print("No points selected, skipping SAM segmentation.")
+        return None
+    
+    point_coords = np.array(clicked_points)
+    point_labels = np.array(point_labels)
+    
+    masks, scores, _ = predictor.predict(
+        point_coords=point_coords,
+        point_labels=point_labels,
+        multimask_output=True,
+    )
+    best_mask = masks[np.argmax(scores)]
+    sam_mask = (best_mask.astype(np.uint8)) * 255  # Convert to 0/255 mask
+    
+    return sam_mask
+
+
+def enhance_contrast_and_sharpen(image_bgr, clip_limit=3.0, tile_grid_size=(8, 8), apply_sharpen=True):
+    """
+    Enhance contrast using CLAHE and optionally sharpen the image.
+
+    Parameters:
+    - image_bgr (np.ndarray): Input image in BGR format.
+    - clip_limit (float): CLAHE clip limit (higher = more contrast).
+    - tile_grid_size (tuple): CLAHE tile grid size.
+    - apply_sharpen (bool): Whether to apply edge sharpening after contrast enhancement.
+
+    Returns:
+    - enhanced (np.ndarray): Enhanced image in BGR format.
+    """
+
+    # Convert BGR to LAB color space
+    lab = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    # Apply CLAHE to the L channel
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    cl = clahe.apply(l)
+
+    # Merge channels back and convert to BGR
+    limg = cv2.merge((cl, a, b))
+    enhanced = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+
+    # Optionally apply sharpening
+    if apply_sharpen:
+        sharpen_kernel = np.array([[0, -1, 0],
+                                   [-1, 5, -1],
+                                   [0, -1, 0]])
+        enhanced = cv2.filter2D(enhanced, -1, sharpen_kernel)
+
+    return enhanced
 
 def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None):
     """
@@ -349,14 +496,16 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     remove small clusters, crop the image, and connect the bottom of the clusters with a line.
     """
     # Load the image
-    image = cv2.imread(image_path)
+    image_bgr  = cv2.imread(image_path)
 
-    if image is None:
+    if image_bgr  is None:
         print("Error: Could not read image from", image_path)
         return
-
+    # plt.ion()
+    sam_mask = run_sam_interactive(image_bgr)
+    # plt.ioff()
     # Step 1: Fill holes before binarization
-    filled_before_binarization = fill_holes_before_binarization(image)
+    filled_before_binarization = fill_holes_before_binarization(image_bgr)
 
     # Step 2: Define the color range for binarization in HSV
     lower_hsv = (0, 0, 160)    # Example: Keep bright white regions
@@ -368,34 +517,53 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
     # Step 4: Fill holes after binarization
     filled_after_binarization = fill_holes_after_binarization(binarized_image)
+    
+    sharpened = enhance_contrast_and_sharpen(image_bgr)
 
+    # plt.imshow(sam_mask)
+    # plt.show()
+    # ----------------------------
+    if sam_mask is not None:
+        # Resize SAM mask to match filled_after_binarization shape if necessary
+        if sam_mask.shape != filled_after_binarization.shape:
+            sam_mask = cv2.resize(sam_mask, (filled_after_binarization.shape[1], filled_after_binarization.shape[0]))
+
+        # Make sure both masks are binary uint8 (0 or 255)
+        _, sam_binary = cv2.threshold(sam_mask, 127, 255, cv2.THRESH_BINARY)
+        _, filled_binary = cv2.threshold(filled_after_binarization, 127, 255, cv2.THRESH_BINARY)
+        # Combine masks with bitwise AND - keep only pixels inside both masks
+        combined_mask = cv2.bitwise_and(filled_binary, sam_binary)
+    else:
+        # If no SAM mask, continue with filled_after_binarization as is
+        combined_mask = filled_after_binarization
 
 
     # Insert calculation of scale here
     # Step 5: Calculate the scaling factor using the binarized image
     scaling_factor = calculate_scaling_factor(
-        image, scale_length)
+        image_bgr, scale_length)
 
     # Step 5: Remove small clusters and keep only large enough ones
     filtered_image = remove_small_clusters(
-        filled_after_binarization, min_percentage)
+        combined_mask, min_percentage)
 
     # Step 6: Find contours and select the clusters
     contours, _ = cv2.findContours(
         filtered_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # Step 7: Crop the image based on the extreme edges of all clusters
-    cropped_image = crop_to_extreme_clusters(filtered_image, contours)
+    final_image = crop_to_extreme_clusters(filtered_image, contours)
+    
 
-    # Step 6: Find contours and select the clusters
-    contours, _ = cv2.findContours(
-        cropped_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # # Step 6: Find contours and select the clusters
+    # contours, _ = cv2.findContours(
+    #     cropped_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Step 8: Connect the bottom of the clusters with a white line and set everything below it white
-    bottom_connected = connect_bottom_of_clusters(cropped_image, contours)
+    # # Step 8: Connect the bottom of the clusters with a white line and set everything below it white
+    # final_image = makewhite(cropped_image)
 
-    # Step 8: Remove all but the largest black cluster
-    final_image = remove_all_but_largest_black_cluster(bottom_connected)
+    # # Step 8: Remove all but the largest black cluster
+    # final_image = remove_all_but_largest_black_cluster(bottom_connected)
 
     # plt.imshow(binarized_image, cmap = "bone")
     # plt.show()
@@ -407,28 +575,32 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     # plt.show()
     xvals, yvals = test_find_topmost_distance(final_image, scaling_factor)
 
-    fig, axs = plt.subplots(2, 1, figsize=(10, 5), dpi=150)
-    axs[1].plot(xvals, yvals, color='b')
-    axs[1].set_title("Extracted Keyhole Contour")
-    axs[1].set_xlabel("Length")
-    axs[1].set_ylabel("Keyhole depth")
-    axs[1].set_xlim(0, xvals[-1])
+    fig, axs = plt.subplots(3, 1, figsize=(10, 5), dpi=150)
+    axs[2].plot(xvals, yvals, color='b')
+    axs[2].set_title("Extracted Keyhole Contour")
+    axs[2].set_xlabel("Length")
+    axs[2].set_ylabel("Keyhole depth")
+    axs[2].set_xlim(0, xvals[-1])
 
     # Add units to the axes 
-    add_units_to_ticks(axs[1], axis='x', unit='mm')  # X-axis with 'mm'
-    add_units_to_ticks(axs[1], axis='y', unit='mm')  # Y-axis with 'mm'
+    add_units_to_ticks(axs[2], axis='x', unit='mm')  # X-axis with 'mm'
+    add_units_to_ticks(axs[2], axis='y', unit='mm')  # Y-axis with 'mm'
 
     # Plot the final image in the second subplot
-    axs[0].imshow(final_image, cmap="gray")
-    axs[0].axis('off')  # Turn off axis
-    axs[0].set_title(f'Processed Image, {image_path}')
+    axs[1].imshow(final_image, cmap="gray")
+    axs[1].axis('off')  # Turn off axis
+    axs[1].set_title(f'Processed Image, {image_path}')
 
     rect = patches.Rectangle((0, 0), final_image.shape[1], final_image.shape[0],
                               linewidth=3, edgecolor="black", facecolor='none')  # Red frame
-    axs[0].add_patch(rect)
-
+    axs[1].add_patch(rect)
+    
+    axs[0].imshow(image_bgr)
+    axs[0].axis("off")
+    
     plt.subplots_adjust(wspace=1, hspace=0.5)
     plt.tight_layout()
+    plt.savefig(f"processed/{image_path.rstrip(".png")}_processed.png")
     plt.show()
     
     # Exports data to 'depth_data.csv'
@@ -437,15 +609,19 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
 
 if __name__ == '__main__':
-    image_list = [
-        f"{i}-1.tif" if i != 15 else "X-1.tif"
-        for i in range(1, 21)
-    ] + [
-        f"{i}-2.tif" if i != 15 else "X-2.tif"
-        for i in range(1, 21)
-    ]
-    for idx in range(len(image_list)):
-        image_name = image_list[idx]
-        image_path = f"{image_name}"
-        Find_Depth(image_path, min_percentage=3, scale_length = 5, 
-                   export_name = f"{image_name}_depth_data.csv" )
+    image_name = "1-1.png"
+    image_path = f"{image_name}"
+    Find_Depth(image_path, min_percentage=0.01, scale_length = 5, 
+                export_name = f"{image_name}_depth_data.csv" )
+    # image_list = [
+    #     f"{i}-1.png" if i != 15 else "X-1.png"
+    #     for i in range(1, 21)
+    # ] + [
+    #     f"{i}-2.png" if i != 15 else "X-2.png"
+    #     for i in range(1, 21)
+    # ]
+    # for idx in range(len(image_list)):
+    #     image_name = image_list[idx]
+    #     image_path = f"{image_name}"
+    #     Find_Depth(image_path, min_percentage=5, scale_length = 5, 
+    #                export_name = f"{image_name}_depth_data.csv" )
