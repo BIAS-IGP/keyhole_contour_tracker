@@ -413,28 +413,41 @@ def run_sam_interactive(image_bgr):
     ax.imshow(image_rgb)
     ax.set_title("Left click = label 1, then press 'z' to change last point to label 0")
     
+    # def onclick(event):
+    #     nonlocal last_point
+    #     if event.inaxes:
+    #         x, y = int(event.xdata), int(event.ydata)
+    #         clicked_points.append([x, y])
+    #         point_labels.append(1)  # Default label is 1
+    #         last_point = len(clicked_points) - 1  # Track index of last added point
+    #         ax.plot(x, y, "ro")  # Red dot for label 1
+    #         fig.canvas.draw()
+    #         print(f"Point added at ({x}, {y}) with label 1")
+    
+    # def onkey(event):
+    #     nonlocal last_point
+    #     if event.key == 'z' and last_point is not None:
+    #         point_labels[last_point] = 0
+    #         x, y = clicked_points[last_point]
+    #         ax.plot(x, y, "bo")  # Blue dot for label 0
+    #         fig.canvas.draw()
+    #         print(f"Last point at ({x}, {y}) changed to label 0")
+    
     def onclick(event):
-        nonlocal last_point
         if event.inaxes:
             x, y = int(event.xdata), int(event.ydata)
-            clicked_points.append([x, y])
-            point_labels.append(1)  # Default label is 1
-            last_point = len(clicked_points) - 1  # Track index of last added point
-            ax.plot(x, y, "ro")  # Red dot for label 1
+            if event.button == 1:
+                clicked_points.append([x, y])
+                point_labels.append(1)
+                ax.plot(x, y, "go")  # Foreground: green
+            elif event.button == 3:
+                clicked_points.append([x, y])
+                point_labels.append(0)
+                ax.plot(x, y, "ro")  # Background: red
             fig.canvas.draw()
-            print(f"Point added at ({x}, {y}) with label 1")
-    
-    def onkey(event):
-        nonlocal last_point
-        if event.key == 'z' and last_point is not None:
-            point_labels[last_point] = 0
-            x, y = clicked_points[last_point]
-            ax.plot(x, y, "bo")  # Blue dot for label 0
-            fig.canvas.draw()
-            print(f"Last point at ({x}, {y}) changed to label 0")
     
     fig.canvas.mpl_connect("button_press_event", onclick)
-    fig.canvas.mpl_connect("key_press_event", onkey)
+    # fig.canvas.mpl_connect("key_press_event", onkey)
     plt.show(block=True)
     
     if len(clicked_points) == 0:
@@ -609,9 +622,15 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
 
 
 if __name__ == '__main__':
-    image_name = "1-1.png"
+    """
+    min_percentage: All clusters that take up less percent of the image than the min_percentage are removed
+    scale_length: Length in mm of the scale (should be visible in the bottom right corner of the image for verification)
+    """
+    
+    image_name = "1-2.png"
     image_path = f"{image_name}"
-    Find_Depth(image_path, min_percentage=0.01, scale_length = 5, 
+    
+    Find_Depth(image_path, min_percentage=0.5, scale_length = 5, 
                 export_name = f"{image_name}_depth_data.csv" )
     # image_list = [
     #     f"{i}-1.png" if i != 15 else "X-1.png"
