@@ -15,8 +15,25 @@ import time as benchmark
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 
-from tqdm.contrib.concurrent import process_map
-from tqdm.contrib.concurrent import istarmap
+import tqdm
+
+
+def istarmap(pool, func, iterable, chunksize=1, total=None, desc=None):
+    """
+    `starmap`-like function using `imap` with `tqdm` progress bar.
+    Compatible with standard multiprocessing.Pool.
+    """
+    if chunksize < 1:
+        raise ValueError(f"Chunksize must be >= 1, got {chunksize}")
+
+    task_batches = mp.pool.Pool._get_tasks(func, iterable, chunksize)
+    result = mp.pool.IMapIterator(pool)
+    pool._taskqueue.put((
+        pool._guarded_task_generation(result._job, mp.pool.starmapstar, task_batches),
+        result._set_length
+    ))
+
+    return tqdm((item for chunk in result for item in chunk), total=total, desc=desc)
 
 
 def weighted_average(data, data_std):
@@ -362,12 +379,17 @@ def generate_curvatures_batch(keyhole_axes, depths, d_depth, geometry_type, thet
     
     print("Processing...")
     bench1 = benchmark.time()
-    with mp.Pool(mp.cpu_count()) as pool:
+    # with mp.Pool(mp.cpu_count()) as pool:
+    #     results = pool.starmap(
+    #         _generate_geometry,
+    #         input_args,
+    #     )
+    with mp.Pool(mp.cpu_count()-1) as pool:
         results = list(
             istarmap(
                 _generate_geometry,
                 input_args,
-                pool,
+                chunksize=1,
                 total=len(input_args),
                 desc="Generating geometries"
             )
