@@ -603,31 +603,53 @@ def get_experiment_list(root_path, name_stem, video_config):
 
     return evaluation_list
 
+def main():
+    time_range = [0.15, 0.6]
+    theta_range = 120
+    N_integral_points = 1000
+    d_depth = 0.01
+    
+    probe_depths =  [1, 2, 3, 4, 5, 6]
+    d_probe = 0.65
+    
+    geometry_type = "paraboloid"
+    name_stem = 'IGP-H-V'
+    video_config = 'config_I'
+    sub_folders =  ['video_analyses']
+    computer = "work"
+    
+    experiment_selection = []
+
+    root_path = r"W:\IGP-H-V\Hauptversuche\Auswertungen_neu"        
+
+    experiment_list = get_experiment_list(root_path, name_stem, video_config)
+    
+    for experiment in experiment_list:
+        # try:
+        name = experiment['name']
+        axes_path = experiment['axes_path']
+        oct_path = experiment['oct_path']
+        
+        if len(experiment_selection) > 0 and not name in experiment_selection:
+            continue
+        
+        print(f"Curvature calculation for experiment {name} started...")
+        
+        output_folder = os.path.join(root_path, name, "curvature_calculation", video_config)
+        
+        keyhole_axes, keyhole_mean_axes = load_keyhole_axes(axes_path, time_range)
+        oct_depth, oct_depth_stats = load_oct_data(oct_path)
+        oct_depth = interpolate_oct_data(oct_depth, keyhole_axes.iloc[:,0])
+         
+        curvatures, curvature_stats = generate_curvatures_batch(keyhole_axes, oct_depth, d_depth, geometry_type, theta_range, N_integral_points)
+        curvatures_pw = probe_weighted_average(curvature_stats['curvature']['time'], curvature_stats['depth'], probe_depths, d_probe)
+        
+        write_curvatures(curvatures, curvature_stats, curvatures_pw, output_folder, name)
+        print(f"Curvature calculation for experiment {name} successful!")
+        # except:
+        #     print(f"Curvature calculation for experiment {name} failed!")
+            
+    #curvatures_pw = aggregate_curvatures(curvatures_stats, probe_depths, probe_diameter)
+    
 if __name__ == "__main__":
-    d = 100000
-    # Create dummy keyhole_axes DataFrame (time, length, width)
-    dummy_keyhole_axes = pd.DataFrame({
-        'time': np.linspace(0, 10, d),  # 5 time points
-        'length': np.random.uniform(2, 4, d),  # Random lengths between 2 and 4
-        'width': np.random.uniform(1, 3, d),   # Random widths between 1 and 3
-    })
-
-    # Create dummy depths DataFrame (time, depth)
-    dummy_depths = pd.DataFrame({
-        'time': np.linspace(0, 10, d),
-        'depth': np.random.uniform(5, 10, d),  # Random depths between 5 and 10 mm
-    })
-
-    # Set probe and curvature integration parameters
-    d_depth = 0.5              # Spacing for depth slices
-    theta_range = 120           # Angular integration range in degrees
-    N_integral_points = 1000    # Number of angular points in integration
-
-    # Run curvature batch generation
-    curvatures, curvature_stats = generate_curvatures_batch(
-        dummy_keyhole_axes,
-        dummy_depths,
-        d_depth,
-        theta_range,
-        N_integral_points
-    )
+    main()
