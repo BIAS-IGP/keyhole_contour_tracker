@@ -143,19 +143,45 @@ def probe_weighted_average(values, depths, probe_depths, d_probe):
         
     return results
 
-def integrate_radius_ellipse(a, b, a_dev, b_dev, theta_range, N_points):
-    theta_vec = np.linspace(-theta_range/2, theta_range/2, N_points)
-    d_theta = np.mean(np.diff(theta_vec))
+# def integrate_radius_ellipse(a, b, a_dev, b_dev, theta_range, N_points):
+#     theta_vec = np.linspace(-theta_range/2, theta_range/2, N_points)
+#     d_theta = np.mean(np.diff(theta_vec))
     
-    radius_vec = np.zeros((N_points, ))
-    literature_radius_vec = np.zeros((N_points, ))
-    radius_dev_vec = np.zeros((N_points, ))
+#     radius_vec = np.zeros((N_points, ))
+#     literature_radius_vec = np.zeros((N_points, ))
+#     radius_dev_vec = np.zeros((N_points, ))
     
-    for ii, theta in enumerate(theta_vec):
-        # radius_vec[ii] = np.sqrt(a**2 * np.power(np.cos(theta),2) + b**2 * np.power(np.sin(theta),2))
-        radius_vec[ii] = (a**2 * np.power(np.sin(theta),2) + b**2 * np.power(np.cos(theta),2))**(3/2) / (a*b)
-        radius_dev_vec[ii] = np.abs(a_dev * a * np.power(np.cos(theta),2) / radius_vec[ii]) + np.abs(b_dev * b * np.power(np.sin(theta),2) / radius_vec[ii])
+#     for ii, theta in enumerate(theta_vec):
+#         radius_vec[ii] = (a**2 * np.power(np.sin(theta),2) + b**2 * np.power(np.cos(theta),2))**(3/2) / (a*b)
+#         radius_dev_vec[ii] = np.abs(a_dev * a * np.power(np.cos(theta),2) / radius_vec[ii]) + np.abs(b_dev * b * np.power(np.sin(theta),2) / radius_vec[ii])
         
+#     radius, radius_dev = weighted_average(radius_vec, radius_dev_vec)
+
+#     return radius, radius_dev
+
+
+def integrate_radius_ellipse(a, b, a_dev, b_dev, theta_range, N_points):
+    theta_vec = np.linspace(-theta_range / 2, theta_range / 2, N_points)
+
+    sin_theta = np.sin(theta_vec)
+    cos_theta = np.cos(theta_vec)
+
+    A = a**2 * sin_theta**2
+    B = b**2 * cos_theta**2
+    denom = a * b
+    numer = (A + B)**(3/2)
+
+    # Radius of curvature
+    radius_vec = numer / denom
+
+    # Partial derivatives for uncertainty propagation
+    sqrt_term = np.sqrt(A + B)
+    dR_da = (3 * a * sin_theta**2 * sqrt_term) / denom - numer / (a**2 * b)
+    dR_db = (3 * b * cos_theta**2 * sqrt_term) / denom - numer / (a * b**2)
+
+    # Uncertainty propagation (standard deviation)
+    radius_dev_vec = np.sqrt((dR_da * a_dev)**2 + (dR_db * b_dev)**2)
+
     radius, radius_dev = weighted_average(radius_vec, radius_dev_vec)
 
     return radius, radius_dev
