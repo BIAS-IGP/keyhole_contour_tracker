@@ -15,7 +15,7 @@ import time as benchmark
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 
-import tqdm
+from tqdm import tqdm
 
 
 def istarmap(pool, func, iterable, chunksize=1, total=None, desc=None):
@@ -387,6 +387,7 @@ def generate_curvatures_batch(keyhole_axes, depths, d_depth, geometry_type, thet
     with mp.Pool(mp.cpu_count()-1) as pool:
         results = list(
             istarmap(
+                pool,
                 _generate_geometry,
                 input_args,
                 chunksize=1,
