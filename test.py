@@ -15,6 +15,10 @@ import time as benchmark
 from joblib import Parallel, delayed
 from matplotlib import pyplot as plt
 
+from tqdm.contrib.concurrent import process_map
+from tqdm.contrib.concurrent import istarmap
+
+
 def weighted_average(data, data_std):
     
     if ((data_std == 0) | np.isnan(data_std)).all():
@@ -354,11 +358,19 @@ def generate_curvatures_batch(keyhole_axes, depths, d_depth, geometry_type, thet
     time = depths.iloc[:, 0].to_numpy(dtype=float)
     
     data = np.hstack((axes, depth))
+    input_args = [(row, d_depth, geometry_type, theta_range, N_integral_points) for row in data]
+    
+    print("Processing...")
     bench1 = benchmark.time()
     with mp.Pool(mp.cpu_count()) as pool:
-        results = pool.starmap(
-            _generate_geometry,
-            [(row, d_depth, geometry_type, theta_range, N_integral_points) for row in data]
+        results = list(
+            istarmap(
+                _generate_geometry,
+                input_args,
+                pool,
+                total=len(input_args),
+                desc="Generating geometries"
+            )
         )
     print("1st benchmark ", benchmark.time() - bench1)
     curvatures, check_vec = zip(*results)
