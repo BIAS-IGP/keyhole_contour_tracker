@@ -510,6 +510,7 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     """
     # Load the image
     image_bgr  = cv2.imread(image_path)
+    image_path = image_path.lstrip("raw_files/")
 
     if image_bgr  is None:
         print("Error: Could not read image from", image_path)
@@ -520,6 +521,8 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     # Step 1: Fill holes before binarization
     filled_before_binarization = fill_holes_before_binarization(image_bgr)
 
+    plt.imshow(filled_before_binarization)
+    plt.show(block=1)
     # Step 2: Define the color range for binarization in HSV
     lower_hsv = (0, 0, 160)    # Example: Keep bright white regions
     upper_hsv = (180, 50, 255)  # Example: Allow only near-white shades
@@ -528,6 +531,8 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     binarized_image = binarize_by_color(
         filled_before_binarization, lower_hsv, upper_hsv)
 
+    plt.imshow(binarized_image)
+    plt.show(block=1)
     # Step 4: Fill holes after binarization
     filled_after_binarization = fill_holes_after_binarization(binarized_image)
     
@@ -613,7 +618,7 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     
     plt.subplots_adjust(wspace=1, hspace=0.5)
     plt.tight_layout()
-    plt.savefig(f"processed/{image_path.rstrip(".png")}_processed.png")
+    plt.savefig(f"processed/{image_path.rstrip(".tif")}_processed.png")
     plt.show()
     
     # Exports data to 'depth_data.csv'
@@ -627,11 +632,11 @@ if __name__ == '__main__':
     scale_length: Length in mm of the scale (should be visible in the bottom right corner of the image for verification)
     """
     
-    image_name = "1-2.png"
-    image_path = f"{image_name}"
+    image_name = "4-1"
+    image_path = f"raw_files/{image_name}.tif"
     
-    Find_Depth(image_path, min_percentage=0.5, scale_length = 5, 
-                export_name = f"{image_name}_depth_data.csv" )
+    Find_Depth(image_path, min_percentage=1, scale_length = 5, 
+                export_name = f"processed/{image_name}_depth_data.csv" )
     # image_list = [
     #     f"{i}-1.png" if i != 15 else "X-1.png"
     #     for i in range(1, 21)
