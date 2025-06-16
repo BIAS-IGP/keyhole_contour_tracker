@@ -266,14 +266,14 @@ def prepare_OCT_depths(depths, ref_time):
 
 #     return curvature
         
-def _generate_geometry(row, d_depth, theta_range, N_integral_points):
+def _generate_geometry(row, d_depth, geometry_type, theta_range, N_integral_points):
     if not any(np.isnan(row)) and all(row[1:] > 0):
         geometry_radii = np.zeros((2, 2, 2))
         geometry_radii[0, 0, 0] = row[1] / 2
         geometry_radii[1, 0, 0] = row[2] / 2
         geometry = {
             'depth': row[3] / 1000,
-            'type': "paraboloid",
+            'type': geometry_type,
             'radius': geometry_radii
         }
         curvature = generate_curvatures(geometry, d_depth, theta_range, N_integral_points)
@@ -348,7 +348,7 @@ def generate_curvatures(geometry, d_depth, theta_range, N_integral_points, n_job
         'curvature_dev': curvature_dev
     })
 
-def generate_curvatures_batch(keyhole_axes, depths, d_depth, theta_range, N_integral_points):
+def generate_curvatures_batch(keyhole_axes, depths, d_depth, geometry_type, theta_range, N_integral_points):
     axes = keyhole_axes.to_numpy(dtype=float)
     depth = depths.iloc[:, 1].to_numpy(dtype=float).reshape(-1, 1)
     time = depths.iloc[:, 0].to_numpy(dtype=float)
@@ -358,7 +358,7 @@ def generate_curvatures_batch(keyhole_axes, depths, d_depth, theta_range, N_inte
     with mp.Pool(mp.cpu_count()) as pool:
         results = pool.starmap(
             _generate_geometry,
-            [(row, d_depth, theta_range, N_integral_points) for row in data]
+            [(row, d_depth, geometry_type, theta_range, N_integral_points) for row in data]
         )
     print("1st benchmark ", benchmark.time() - bench1)
     curvatures, check_vec = zip(*results)
