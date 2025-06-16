@@ -547,6 +547,7 @@ def evaluate_curvature_data(data):
     time = np.zeros((time_len, ))
     
     bench1 = benchmark.time()
+    depth_len = -1
     for ii, curve in enumerate(data['curvatures']):
         if type(curve) == int:
             continue
