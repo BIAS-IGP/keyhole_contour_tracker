@@ -1,2 +1,6 @@
 *.pth
 /segment_anything
+/raw_files
+contour_tracker.py
+*.svg
+*.oct
