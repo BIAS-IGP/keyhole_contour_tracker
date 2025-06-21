@@ -27,6 +27,13 @@ def binarize_by_color(image, lower_hsv, upper_hsv):
     """
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+    
+    # mask_bright = cv2.inRange(hsv, (0, 0, 160), (180, 60, 255))
+    # # Dark grey areas
+    # mask_dark = cv2.inRange(hsv, (0, 0, 50), (180, 60, 180))
+    
+    # # Combine them
+    # mask = cv2.bitwise_or(mask_bright, mask_dark)
     return mask
 
 
@@ -163,68 +170,143 @@ def connect_bottom_of_clusters(image, contours):
 
     return result_image
 
-
 def makewhite(image):
     """
     For each column in the binary image, find the first white pixel from the top,
-    and set all pixels below it to white (255).
-    
+    and set all pixels below it to white (255). Also adds a white line across
+    the entire image at the lowest row that contains any white pixel.
+
     Parameters:
     - image: Grayscale or binary image (2D numpy array with values 0 or 255)
 
     Returns:
-    - result_image: Modified image with everything below the first white pixel per column set to white
+    - result_image: Modified image
     """
     height, width = image.shape
     result_image = image.copy()
+    lowest_white_row = -1  # Will store the lowest row that has at least one white pixel
 
     for x in range(width):
         column = image[:, x]
-        
-        # Find indices where the pixel is white (255)
         white_indices = np.where(column == 255)[0]
 
         if white_indices.size > 0:
             top_white_y = white_indices[0]
-            result_image[top_white_y:, x] = 255  # Fill all pixels below with white
+            # result_image[top_white_y:, x] = 255
+            lowest_white_row = max(lowest_white_row, white_indices[-1])  # Track lowest white row
+
+    # Draw white line on the lowest row that had any white pixel
+    if lowest_white_row >= 0:
+        result_image[lowest_white_row, :] = 255
 
     return result_image
 
-def find_topmost_point_at_each_x(image):
-    """
-    Find the topmost point for each x-coordinate in the image and return the y-values.
-    """
-    # Check if the image is already grayscale (binary)
-    if len(image.shape) == 2:  # This means the image is already grayscale (1 channel)
-        binary_image = image
-    else:
-        # Convert the image to grayscale if it's not already
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        _, binary_image = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+# def find_topmost_point_at_each_x(image):
+#     """
+#     Find the topmost point for each x-coordinate in the image and return the y-values.
+#     """
+#     # Check if the image is already grayscale (binary)
+#     if len(image.shape) == 2:  # This means the image is already grayscale (1 channel)
+#         binary_image = image
+#     else:
+#         # Convert the image to grayscale if it's not already
+#         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#         _, binary_image = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
 
-    # Initialize a list to store the topmost y-values for each x-coordinate
-    topmost_y_values = []
+#     # Initialize a list to store the topmost y-values for each x-coordinate
+#     topmost_y_values = []
 
-    # Iterate over each x-coordinate of the image
-    for x in range(binary_image.shape[1]):
-        # Extract the column of pixels for the current x-coordinate
+#     # Iterate over each x-coordinate of the image
+#     for x in range(binary_image.shape[1]):
+#         # Extract the column of pixels for the current x-coordinate
+#         column = binary_image[:, x]
+
+#         # Find the topmost white pixel (y-coordinate) in this column
+#         y_coordinates = np.where(column == 255)[0]
+
+#         if len(y_coordinates) > 0:
+#             # Get the smallest y-coordinate (topmost)
+#             topmost_y = np.min(y_coordinates)
+#         else:
+#             # If no white pixels, consider it as bottom of the image
+#             topmost_y = binary_image.shape[0]
+
+#         topmost_y_values.append(topmost_y)
+
+#     return topmost_y_values
+# def find_topmost_point_at_each_x(image):
+#     """
+#     Count the number of black pixels (value == 0) in each column (x-coordinate)
+#     and return a list of those counts.
+#     """
+#     # Ensure the image is grayscale
+#     if len(image.shape) == 2:
+#         gray_image = image
+#     else:
+#         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+#     # Binarize the image: 0 = black, 255 = white
+#     _, binary_image = cv2.threshold(gray_image, 127, 255, cv2.THRESH_BINARY)
+
+#     # Initialize a list to hold the black pixel count for each column
+#     black_pixel_counts = []
+
+#     # Loop through each column
+#     for x in range(binary_image.shape[1]):
+#         column = binary_image[:, x]
+#         black_count = np.sum(column == 0)
+#         black_pixel_counts.append(black_count)
+
+#     return black_pixel_counts
+def find_topmost_point_at_each_x(binary_image):
+    """
+    Given a binary image, compute the maximum sample height and the true depth per column.
+    """
+    # Ensure binary values are 0 and 1
+    binary_image = (binary_image > 0).astype(np.uint8)
+    
+    height, width = binary_image.shape
+    
+    sample_heights = []
+    
+    # Step 1: Compute per-column sample height (bottom - top index of 1s)
+    for x in range(width):
         column = binary_image[:, x]
-
-        # Find the topmost white pixel (y-coordinate) in this column
-        y_coordinates = np.where(column == 255)[0]
-
-        if len(y_coordinates) > 0:
-            # Get the smallest y-coordinate (topmost)
-            topmost_y = np.min(y_coordinates)
+        ones = np.where(column == 1)[0]
+        if len(ones) > 0:
+            col_height = ones[-1] - ones[0] + 1  # inclusive
+            sample_heights.append(col_height)
         else:
-            # If no white pixels, consider it as bottom of the image
-            topmost_y = binary_image.shape[0]
+            sample_heights.append(0)
+    
+    # Step 2: Max height across all columns
+    max_sample_height = max(sample_heights)
+    print(np.argmax(sample_heights))
+    print(max_sample_height)
 
-        topmost_y_values.append(topmost_y)
-
-    return topmost_y_values
-
-
+    # Step 3: Compute depth for each column
+    true_depths = []
+    for x in range(width):
+        column = binary_image[:, x]
+        
+        # Start from the bottom and go up to find first 1
+        for y in reversed(range(height)):
+            if column[y] == 1:
+                start_y = y
+                break
+        else:
+            true_depths.append(0)
+            continue
+        
+        # Go up from start_y for `max_sample_height` pixels
+        top_y = max(0, start_y - max_sample_height + 1)
+        slice_upward = column[top_y:start_y + 1]
+        ones_count = np.sum(slice_upward)
+        
+        depth = max_sample_height - ones_count
+        true_depths.append(depth)
+    return true_depths
+    # return true_depths, max_sample_height
 def convert_pixels_to_mm(pixel_distances, scaling_factor):
     """
     Convert a list of pixel distances to millimeters using a scaling factor.
@@ -503,7 +585,7 @@ def enhance_contrast_and_sharpen(image_bgr, clip_limit=3.0, tile_grid_size=(8, 8
 
     return enhanced
 
-def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None):
+def Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=160, min_percentage=0.1, scale_length=5, export_name=None):
     """
     Load the image, fill holes before and after binarization, apply color-based binarization, 
     remove small clusters, crop the image, and connect the bottom of the clusters with a line.
@@ -524,7 +606,7 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     plt.imshow(filled_before_binarization)
     plt.show(block=1)
     # Step 2: Define the color range for binarization in HSV
-    lower_hsv = (0, 0, 160)    # Example: Keep bright white regions
+    lower_hsv = (lower_hsv_h, lower_hsv_s, lower_hsv_v)    # Example: Keep bright white regions
     upper_hsv = (180, 50, 255)  # Example: Allow only near-white shades
 
     # Step 3: Apply the color-based binarization
@@ -573,15 +655,16 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     final_image = crop_to_extreme_clusters(filtered_image, contours)
     
 
-    # # Step 6: Find contours and select the clusters
-    # contours, _ = cv2.findContours(
-    #     cropped_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Step 6: Find contours and select the clusters
+    contours, _ = cv2.findContours(
+        final_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # # Step 8: Connect the bottom of the clusters with a white line and set everything below it white
-    # final_image = makewhite(cropped_image)
+    # Step 8: Connect the bottom of the clusters with a white line and set everything below it white
+    final_image = makewhite(final_image)
 
     # # Step 8: Remove all but the largest black cluster
-    # final_image = remove_all_but_largest_black_cluster(bottom_connected)
+    # final_image =  remove_small_clusters(
+    #     final_image, 5)
 
     # plt.imshow(binarized_image, cmap = "bone")
     # plt.show()
@@ -593,33 +676,49 @@ def Find_Depth(image_path, min_percentage=0.1, scale_length=5, export_name=None)
     # plt.show()
     xvals, yvals = test_find_topmost_distance(final_image, scaling_factor)
 
-    fig, axs = plt.subplots(3, 1, figsize=(10, 5), dpi=150)
-    axs[2].plot(xvals, yvals, color='b')
+
+    
+    # Create figure and 3 subplots stacked vertically
+    fig, axs = plt.subplots(3, 1, figsize=(10, 7), dpi=150, sharex=False)
+    
+    # Plot the BGR image (top)
+    axs[0].imshow(image_bgr)
+    axs[0].axis("off")
+    axs[0].set_title("Original Image")
+    axs[0].set_box_aspect(1 / (image_bgr.shape[1] / image_bgr.shape[0]))  # Match width
+    
+    # Plot the processed grayscale image (middle)
+    axs[1].imshow(final_image, cmap="gray")
+    axs[1].axis("off")
+    axs[1].set_title(f'Processed Image, {image_path}')
+    axs[1].add_patch(
+        patches.Rectangle(
+            (0, 0),
+            final_image.shape[1],
+            final_image.shape[0],
+            linewidth=3,
+            edgecolor="black",
+            facecolor='none'
+        )
+    )
+    axs[1].set_box_aspect(1 / (final_image.shape[1] / final_image.shape[0]))  # Match width
+    
+    # Plot the extracted contour (bottom)
+    axs[2].plot(xvals, yvals, color='r')
     axs[2].set_title("Extracted Keyhole Contour")
     axs[2].set_xlabel("Length")
     axs[2].set_ylabel("Keyhole depth")
     axs[2].set_xlim(0, xvals[-1])
-
-    # Add units to the axes 
-    add_units_to_ticks(axs[2], axis='x', unit='mm')  # X-axis with 'mm'
-    add_units_to_ticks(axs[2], axis='y', unit='mm')  # Y-axis with 'mm'
-
-    # Plot the final image in the second subplot
-    axs[1].imshow(final_image, cmap="gray")
-    axs[1].axis('off')  # Turn off axis
-    axs[1].set_title(f'Processed Image, {image_path}')
-
-    rect = patches.Rectangle((0, 0), final_image.shape[1], final_image.shape[0],
-                              linewidth=3, edgecolor="black", facecolor='none')  # Red frame
-    axs[1].add_patch(rect)
+    add_units_to_ticks(axs[2], axis='x', unit='mm')
+    add_units_to_ticks(axs[2], axis='y', unit='mm')
+    # axs[2].set_box_aspect(1 / (len(xvals) / max(yvals)))  # Adjust proportionally
     
-    axs[0].imshow(image_bgr)
-    axs[0].axis("off")
-    
-    plt.subplots_adjust(wspace=1, hspace=0.5)
+    # Tidy up layout
     plt.tight_layout()
-    plt.savefig(f"processed/{image_path.rstrip(".tif")}_processed.png")
+    # plt.subplots_adjust(hspace=0)
+    plt.savefig(f"processed/{image_path.rstrip('.tif')}_processed.png")
     plt.show()
+
     
     # Exports data to 'depth_data.csv'
     if export_name != None:
@@ -632,11 +731,12 @@ if __name__ == '__main__':
     scale_length: Length in mm of the scale (should be visible in the bottom right corner of the image for verification)
     """
     
-    image_name = "4-1"
+    image_name = "2-2"
     image_path = f"raw_files/{image_name}.tif"
     
-    Find_Depth(image_path, min_percentage=1, scale_length = 5, 
-                export_name = f"processed/{image_name}_depth_data.csv" )
+    Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=170, min_percentage=0.1, scale_length = 5,
+                export_name = f"processed/{image_name}_depth_data.csv")
+    
     # image_list = [
     #     f"{i}-1.png" if i != 15 else "X-1.png"
     #     for i in range(1, 21)
