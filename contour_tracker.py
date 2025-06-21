@@ -74,6 +74,39 @@ def remove_small_clusters(image, min_percentage):
 
     return result
 
+def remove_large_clusters(image, max_percentage):
+    """
+    Find connected components and remove clusters larger than a given percentage of the total image size.
+    
+    Args:
+        image (np.ndarray): Binary image (0 and 255) with clusters.
+        max_percentage (float): Maximum cluster size as a percentage of the image size.
+        
+    Returns:
+        np.ndarray: Binary image with large clusters removed.
+    """
+    # Get the total number of pixels in the image
+    total_pixels = image.shape[0] * image.shape[1]
+
+    # Calculate the maximum number of pixels allowed for a cluster
+    max_area = int(total_pixels * max_percentage / 100)
+
+    # Find contours in the binary image
+    contours, _ = cv2.findContours(
+        image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Create a mask for clusters smaller than or equal to the max_area
+    mask = np.zeros_like(image)
+
+    for contour in contours:
+        # Check the area of each contour
+        if cv2.contourArea(contour) <= max_area:
+            cv2.drawContours(mask, [contour], -1, 255, thickness=cv2.FILLED)
+
+    # Apply the mask to keep only clusters smaller than or equal to the max_area
+    result = cv2.bitwise_and(image, mask)
+
+    return result
 
 def remove_all_but_largest_black_cluster(image):
     """
@@ -663,7 +696,7 @@ def Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=160, mi
     final_image = makewhite(final_image)
 
     # # Step 8: Remove all but the largest black cluster
-    # final_image =  remove_small_clusters(
+    # final_image =  remove_large_clusters(
     #     final_image, 5)
 
     # plt.imshow(binarized_image, cmap = "bone")
@@ -731,10 +764,10 @@ if __name__ == '__main__':
     scale_length: Length in mm of the scale (should be visible in the bottom right corner of the image for verification)
     """
     
-    image_name = "2-2"
+    image_name = "11-1"
     image_path = f"raw_files/{image_name}.tif"
     
-    Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=170, min_percentage=0.1, scale_length = 5,
+    Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 10, lower_hsv_v=190, min_percentage=0.01, scale_length = 5,
                 export_name = f"processed/{image_name}_depth_data.csv")
     
     # image_list = [
