@@ -9,7 +9,7 @@ idx = 2
 
 df1 = pd.read_csv(f"xray/IGP-H-IFSW-{idx}/IGP-H-IFSW-{idx}_centered_depth.csv", delimiter=";")
 df2 = pd.read_csv(f"OCT-Auswertungen/IGP-H-IFSW-{idx}/IGP-H-IFSW-{idx}_depth_analysis_centered.csv", delimiter=";")
-df3 = pd.read_csv(f"stitched/{idx}_depth_data.csv", delimiter=",")
+df3 = pd.read_csv(f"stitched/{idx}_depth_data_centered.csv", delimiter=",")
 
 
 xray_time = df1["time"].values
@@ -18,7 +18,7 @@ xray_depth = df1["depth"].values
 oct_time = df2["time"].values
 oct_depth = df2["OCT-depth"].values / 1000
 
-stitched_time = df3["Length [mm]"].values / 100
+stitched_time = df3["Time [s]"].values
 stitched_depth = df3["Keyhole depth [mm]"].values
 
 # Optional: interpolate all to same time base
