@@ -1,22 +1,40 @@
 import os
 import pandas as pd
-
+import re
 # === Parameters ===
 root_dir = "xray/"
 time_factor = 1 / 5000
 
 # Provide one center index per subfolder (in order they appear in os.walk)
-center_indices = [0, 4378, 4383, 4378, 
-                4368, 4377, 4367, 
-                4382, 4223, 
-                0,0,0,0,0]
+center_indices = [0, 
+                  4378, 
+                  4383, 
+                  4378, 
+                  4368, 
+                  4377, 
+                  4367, 
+                  4382, 
+                  4223, 
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                  ]
 
 # === Traverse folders ===
 folder_count = 0
 
-for dirpath, dirnames, filenames in os.walk(root_dir):
-    if dirpath == root_dir:
-        continue  # Skip root, only process subfolders
+def numeric_suffix(folder_name):
+    match = re.search(r'(\d+)$', folder_name)
+    return int(match.group(1)) if match else float('inf')
+
+all_folders = [os.path.join(root_dir, name) for name in os.listdir(root_dir)
+               if os.path.isdir(os.path.join(root_dir, name))]
+sorted_folders = sorted(all_folders, key=lambda x: numeric_suffix(os.path.basename(x)))
+
+for dirpath in sorted_folders:
+    filenames = os.listdir(dirpath)
 
     # Look for *_analysis_complete.csv and *_index.csv
     analysis_file = None
