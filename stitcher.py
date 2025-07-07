@@ -23,6 +23,9 @@ for one_img, two_img in zip(one_list, two_list):
     else:
         csv1 = f"processed/{base_name}-1_depth_data.csv"
         csv2 = f"processed/{base_name}-2_depth_data.csv"
+    
+
+    
     output_csv = f"stitched/{base_name}_depth_data.csv"
     output_plot = f"stitched/{base_name}_depth_plot.png"
 
@@ -34,11 +37,25 @@ for one_img, two_img in zip(one_list, two_list):
     # Load both CSVs
     df1 = pd.read_csv(csv1)
     df2 = pd.read_csv(csv2)
-
+        # Load both CSVs
+    df1 = pd.read_csv(csv1)
+    df2 = pd.read_csv(csv2)
+    
+    # Apply vertical shift to Series 5 and 9
+    if base_name in ["9"]:
+        df2["Keyhole depth [mm]"] -= 1.0  # shift 1 mm downward
+    if base_name=="5":
+        df2["Keyhole depth [mm]"] -= 0.5
+    if base_name=="3":
+        df2["Keyhole depth [mm]"] -= 0.3
+    if base_name=="6":
+        df2["Keyhole depth [mm]"] -= 1.0
+    
     # Calculate scaling step and offset
     scaling_step = df1["Length [mm]"].iloc[1] - df1["Length [mm]"].iloc[0]
     last_length = df1["Length [mm]"].iloc[-1]
     df2["Length [mm]"] += last_length + scaling_step
+    
 
     # Combine and save
     combined_df = pd.concat([df1, df2], ignore_index=True)

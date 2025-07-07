@@ -6,7 +6,7 @@ root_dir = "xray/"
 time_factor = 1 / 5000
 
 # Provide one center index per subfolder (in order they appear in os.walk)
-center_indices = [0, 
+center_indices = [4289 , 
                   4378, 
                   4383, 
                   4378, 

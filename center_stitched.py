@@ -1,5 +1,9 @@
 import pandas as pd
 
+"""
+For Versuchsnummer 2 the values are reversed!!!
+"""
+
 def center_and_convert_to_time(csv_path, x_value, rate_mm_per_min, output_path=None):
     """
     Replace 'Length [mm]' column with 'Time [s]' by centering around x_value and converting using mm/min rate.
@@ -23,7 +27,7 @@ def center_and_convert_to_time(csv_path, x_value, rate_mm_per_min, output_path=N
     
     # Center and convert to time in seconds
     df["Length [mm]"] = (df["Length [mm]"] - closest_value) / rate_mm_per_min * 60
-    # df["Length [mm]"] = df["Length [mm]"][::-1]
+    df["Length [mm]"] = df["Length [mm]"][::-1]
     # Rename column to 'Time [s]'
     df = df.rename(columns={"Length [mm]": "Time [s]"})
     
@@ -64,8 +68,13 @@ for idx, x_val in enumerate(x_vals):
 # Example usage:
 # idx = 1
 # x_val = 77
+
+
     df_centered = center_and_convert_to_time(f"{idx+1}_depth_data.csv", 
-                                       x_value=x_val, 
-                                       rate_mm_per_min = speed[idx],
-                                       output_path=f"{idx+1}_depth_data_centered.csv"
-                                       )
+                                        x_value=x_val, 
+                                        rate_mm_per_min = speed[idx],
+                                        output_path=f"{idx+1}_depth_data_centered.csv"
+                                        )
+    if idx == 1:
+        df_centered["Time [s]"] = -df_centered["Time [s]"]
+        df_centered.to_csv(f"{idx+1}_depth_data_centered.csv", index=False)
