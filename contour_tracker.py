@@ -526,7 +526,8 @@ def run_sam_interactive(image_bgr):
     
     fig, ax = plt.subplots()
     ax.imshow(image_rgb)
-    ax.set_title("Left click = label 1, then press 'z' to change last point to label 0")
+    ax.axis("off")
+    ax.set_title("Left click = label 1 (Green), Right click = label 0 (Red)")
     
     # def onclick(event):
     #     nonlocal last_point
@@ -646,13 +647,20 @@ def Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=160, mi
     binarized_image = binarize_by_color(
         filled_before_binarization, lower_hsv, upper_hsv)
 
-    plt.imshow(binarized_image)
+    plt.figure(dpi = 150, figsize = (10,5))
+    plt.imshow(binarized_image, cmap = "bone")
+    plt.axis("off")
     plt.show(block=1)
     # Step 4: Fill holes after binarization
     filled_after_binarization = fill_holes_after_binarization(binarized_image)
     
-    sharpened = enhance_contrast_and_sharpen(image_bgr)
-
+    # sharpened = enhance_contrast_and_sharpen(image_bgr)
+    
+    # plt.figure(dpi = 150)
+    # plt.imshow(sharpened, cmap = "bone")
+    # plt.axis("off")
+    # plt.show(block=1)
+    
     # plt.imshow(sam_mask)
     # plt.show()
     # ----------------------------
@@ -670,6 +678,10 @@ def Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=160, mi
         # If no SAM mask, continue with filled_after_binarization as is
         combined_mask = filled_after_binarization
 
+    plt.figure(dpi = 150)
+    plt.imshow(combined_mask, cmap = "bone")
+    plt.axis("off")
+    plt.show(block=1)
 
     # Insert calculation of scale here
     # Step 5: Calculate the scaling factor using the binarized image
@@ -749,13 +761,13 @@ def Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=160, mi
     # Tidy up layout
     plt.tight_layout()
     # plt.subplots_adjust(hspace=0)
-    plt.savefig(f"processed/{image_path.rstrip('.tif')}_processed.png")
+    # plt.savefig(f"processed/{image_path.rstrip('.tif')}_processed.png")
     plt.show()
 
     
     # Exports data to 'depth_data.csv'
-    if export_name != None:
-      export_to_csv(xvals, yvals, filename=export_name)
+    # if export_name != None:
+    #   export_to_csv(xvals, yvals, filename=export_name)
 
 
 if __name__ == '__main__':
@@ -764,10 +776,10 @@ if __name__ == '__main__':
     scale_length: Length in mm of the scale (should be visible in the bottom right corner of the image for verification)
     """
     
-    image_name = "11-1"
+    image_name = "1-1"
     image_path = f"raw_files/{image_name}.tif"
     
-    Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 10, lower_hsv_v=190, min_percentage=0.01, scale_length = 5,
+    Find_Depth(image_path, lower_hsv_h = 0, lower_hsv_s = 0, lower_hsv_v=140, min_percentage=1, scale_length = 5,
                 export_name = f"processed/{image_name}_depth_data.csv")
     
     # image_list = [
