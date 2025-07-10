@@ -98,36 +98,63 @@ for idx in range(0, 12):
         shift_stitched = dt * lag_stitched
 
         print(f"[{idx}] X-ray to OCT shift: {shift_xray:.4f}s | Stitched to OCT shift: {shift_stitched:.4f}s")
-
-        # shift_xray = find_shift_with_uncertainty(corr_xray, lags_xray, dt, 0.15)
+        
+        error_reg = 0.1
+        shift_xray = find_shift_with_uncertainty(corr_xray, lags_xray, dt, error_reg)
         # shift_stitched = find_shift_with_uncertainty(corr_stitched, lags_stitched, dt, 0.15)
         # Apply alignment shifts
         xray_time_aligned = xray_time - shift_xray
         stitched_time_aligned = stitched_time - shift_stitched
 
         # Create figure with GridSpec layout
-        fig = plt.figure(figsize=(14, 8))
+        fig = plt.figure(figsize=(14, 10))
+        # plt.tight_layout(w_pad=7)
+        plt.rcParams['font.family'] = 'Arial'
+        
+        # fig2, xraycorr_axes = plt.subplots(1,2, dpi = 150, figsize=(10, 6))
+        # xcor1, xcor2 = xraycorr_axes
+        # xcor1.plot(lags_xray * dt, corr_xray, color='blue')
+        # xcor1.axvline(shift_xray, color='black', linestyle='--', label=f'Shift = {shift_xray:.4f}s')
+        # xcor1.set_title('Global maximum')
+        # xcor1.set_xlabel("Lag (s)")
+        # xcor1.set_ylabel("Korrelationswert")
+        
+        # xcor2.plot(lags_xray * dt, corr_xray, color='blue')
+        # xcor2.axvline(shift_xray_new, color='black', linestyle='--', label=f'Shift = {shift_xray:.4f}s')
+        # xcor2.set_xlim(-error_reg, error_reg)
+        # xcor2.set_title('Local restricted maximum')
+        # xcor2.set_xlabel("Lag (s)")
+
+
+        
         gs = gridspec.GridSpec(2, 2, height_ratios=[1, 2], hspace=0.3, wspace=0.3)
         
         # Top left: Correlation X-ray vs OCT
         ax_corr1 = fig.add_subplot(gs[0, 0])
         ax_corr1.plot(lags_xray * dt, corr_xray, color='blue')
         ax_corr1.axvline(shift_xray, color='black', linestyle='--', label=f'Shift = {shift_xray:.4f}s')
-        ax_corr1.set_title('Kreuzkorrelation: Röntgen vs OCT')
-        ax_corr1.set_xlabel("Lag (s)")
-        ax_corr1.set_ylabel("Korrelationswert")
-        ax_corr1.grid(True)
+        ax_corr1.axvline(error_reg, color = "black", linestyle = "solid")
+        ax_corr1.axvline(-error_reg, color = "black", linestyle = "solid")
+        ax_corr1.set_title('Kreuzkorrelation: Röntgen vs OCT', fontsize = 18)
+        ax_corr1.set_xlabel("Lag", fontsize = 18)
+        ax_corr1.set_ylabel("Korrelationswert", fontsize = 18)
+        # ax_corr1.grid(True)
         ax_corr1.legend()
+        
+        add_units_to_ticks(ax_corr1, axis='x', unit='s')
+        # add_units_to_ticks(ax_corr1, axis='y', unit='mm')
         
         # Top right: Correlation Stitched vs OCT
         ax_corr2 = fig.add_subplot(gs[0, 1])
         ax_corr2.plot(lags_stitched * dt, corr_stitched, color='red')
         ax_corr2.axvline(shift_stitched, color='black', linestyle='--', label=f'Shift = {shift_stitched:.4f}s')
-        ax_corr2.set_title('Kreuzkorrelation: Längsschliff vs OCT')
-        ax_corr2.set_xlabel("Lag (s)")
-        ax_corr2.set_ylabel("Korrelationswert")
-        ax_corr2.grid(True)
+        ax_corr2.set_title('Kreuzkorrelation: Längsschliff vs OCT', fontsize = 18)
+        ax_corr2.set_xlabel("Lag", fontsize = 18)
+        # ax_corr2.grid(True)
         ax_corr2.legend()
+        
+        add_units_to_ticks(ax_corr2, axis='x', unit='s')
+        # add_units_to_ticks(ax_final, axis='y', unit='mm')
         
         # Bottom: Final combined depth comparison (spans both columns)
         ax_final = fig.add_subplot(gs[1, :])
@@ -143,17 +170,23 @@ for idx in range(0, 12):
         
         # Arrows indicating shifts
 
-        y_arrow = np.nanmax([np.nanmax(xray_depth), np.nanmax(oct_depth), np.nanmax(stitched_depth)]) * 0.95
-        ax_final.annotate("", xy=(xray_time_aligned[0], y_arrow), xytext=(xray_time[0], y_arrow), arrowprops=dict(arrowstyle="->", color="blue", linewidth=1))
-        ax_final.annotate("", xy=(stitched_time_aligned[0], y_arrow * 0.9), xytext=(stitched_time[0], y_arrow * 0.9), arrowprops=dict(arrowstyle="->", color="red", linewidth=1))
-        ax_final.text((xray_time_aligned[0] + xray_time[0]) / 2, y_arrow * 1.02, f"{shift_xray:.2f}s", ha='center')
-        ax_final.text((stitched_time_aligned[0] + stitched_time[0]) / 2, y_arrow * 0.92, f"{shift_stitched:.2f}s", ha='center')
+        # y_arrow = np.nanmax([np.nanmax(xray_depth), np.nanmax(oct_depth), np.nanmax(stitched_depth)]) * 0.95
+        # ax_final.annotate("", xy=(xray_time_aligned[0], y_arrow), xytext=(xray_time[0], y_arrow), 
+        #                   arrowprops=dict(arrowstyle="->", color="blue", linewidth=1), fontsize = 18)
+        # ax_final.annotate("", xy=(stitched_time_aligned[0], y_arrow * 0.9), xytext=(stitched_time[0], y_arrow * 0.9), 
+        #                   arrowprops=dict(arrowstyle="->", color="red", linewidth=1), fontsize = 18)
+        # ax_final.text((xray_time_aligned[0] + xray_time[0]) / 2, y_arrow * 1.02, f"{shift_xray:.2f}s",
+        #               ha='center', fontsize = 18)
+        # ax_final.text((stitched_time_aligned[0] + stitched_time[0]) / 2, y_arrow * 0.92, f"{shift_stitched:.2f}s", 
+        #               ha='center', fontsize = 18)
         
-        ax_final.set_title(f"Tiefenvergleich – ID {idx}")
-        ax_final.set_xlabel("Zeit [s]")
-        ax_final.set_ylabel("Tiefe [mm]")
-        ax_final.grid(True)
+        ax_final.set_title(f"Tiefenvergleich – ID {idx}", fontsize = 18)
+        ax_final.set_xlabel("Zeit", fontsize = 18)
+        ax_final.set_ylabel("Tiefe", fontsize = 18)
+        # ax_final.grid(True)
         ax_final.legend()
+        for ax in [ax_corr1, ax_corr2, ax_final]:
+            ax.tick_params(direction='in', labelsize=18, width = 2, size = 5)
         
         add_units_to_ticks(ax_final, axis='x', unit='s')
         add_units_to_ticks(ax_final, axis='y', unit='mm')
@@ -162,6 +195,7 @@ for idx in range(0, 12):
         plt.tight_layout()
         plt.savefig(f"Cross_correlated/{idx}_combined_plot.png")
         plt.show()
+        # break
 
 
     except Exception as e:
